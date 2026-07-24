@@ -1,0 +1,95 @@
+revision: 9
+spec_ref: feat.anthropic-messages__20260724.s5d.yaml
+spec_sha256: sha256:d5e56df39bcefe5e2d815f1537e9042817c02924e7b2092887e0116e838dc1dd
+status: operated
+sync_status: synced
+status_history:
+- status: proposed
+  timestamp: 2026-07-24T19:53:38.884688+00:00
+- status: previewed
+  timestamp: 2026-07-24T19:57:43.392145+00:00
+- status: approved
+  timestamp: 2026-07-24T19:57:43.414458+00:00
+- status: previewed
+  timestamp: 2026-07-24T20:10:58.312698+00:00
+- status: approved
+  timestamp: 2026-07-24T20:10:58.337362+00:00
+- status: applied
+  timestamp: 2026-07-24T20:12:01.966464+00:00
+- status: operated
+  timestamp: 2026-07-24T20:12:01.994983+00:00
+active_phase: null
+phase_history: []
+phase_runs: []
+approvals:
+- reviewer: Roman
+  date: 2026-07-24T19:57:43.414455+00:00
+  spec_sha256: sha256:b643e520dddc27dc2bd7f0ec6cc8bac24eba8f93d3d18baefccd4a12ddf3cdd4
+  diff_sha256: sha256:45256c6db2560a7aa550b462fe41774d9cf3f0d426ba3bd462a78a755b570a57
+- reviewer: Roman
+  date: 2026-07-24T20:10:58.337359+00:00
+  spec_sha256: sha256:d5e56df39bcefe5e2d815f1537e9042817c02924e7b2092887e0116e838dc1dd
+  diff_sha256: sha256:45256c6db2560a7aa550b462fe41774d9cf3f0d426ba3bd462a78a755b570a57
+preview:
+  diff_sha256: sha256:45256c6db2560a7aa550b462fe41774d9cf3f0d426ba3bd462a78a755b570a57
+  previewed_spec_sha256: sha256:d5e56df39bcefe5e2d815f1537e9042817c02924e7b2092887e0116e838dc1dd
+  actions:
+    create: 7
+    link: 7
+    update: 5
+    delete: 0
+  log: null
+reflection:
+  verdict: null
+  measurement_window: null
+  telemetry_refs: []
+  summary: 'Shipped: POST /v1/messages with full Anthropic SSE protocol, 52/52 tests, live smoke 3/3 (shape+usage, event order, 400 on missing max_tokens)'
+  worked: []
+  issues: []
+  structured_issues: []
+  follow_ups: []
+  evidence: []
+  heuristics:
+  - Protocol adapters are cheap when the generation seam is protocol-agnostic — verify the SSE event order against vendor docs, not memory
+gate_results:
+- kind: schema
+  status: passed
+  spec_sha256: sha256:d5e56df39bcefe5e2d815f1537e9042817c02924e7b2092887e0116e838dc1dd
+  attempt: 1
+  timestamp: 2026-07-24T20:10:58.381102+00:00
+  log: schema validation passed (built-in)
+  exit_code: null
+  evidence_path: evidence/feat.anthropic-messages/schema_1.log
+  command: null
+  duration_ms: 9
+  waiver_expires_at: null
+  kind_class: null
+- kind: graph
+  status: passed
+  spec_sha256: sha256:d5e56df39bcefe5e2d815f1537e9042817c02924e7b2092887e0116e838dc1dd
+  attempt: 1
+  timestamp: 2026-07-24T20:10:58.390307+00:00
+  log: graph check passed (built-in)
+  exit_code: null
+  evidence_path: evidence/feat.anthropic-messages/graph_1.log
+  command: null
+  duration_ms: 9
+  waiver_expires_at: null
+  kind_class: null
+- kind: review
+  status: passed
+  spec_sha256: sha256:d5e56df39bcefe5e2d815f1537e9042817c02924e7b2092887e0116e838dc1dd
+  attempt: 1
+  timestamp: 2026-07-24T20:10:58.399148+00:00
+  log: |-
+    review gate passed (built-in): 1 review-evidence with verdict=pass
+      - hypothesis=implementation-review evidence_id=20260724-gate-review-implementation-review formality=?
+  exit_code: null
+  evidence_path: evidence/feat.anthropic-messages/review_1.log
+  command: null
+  duration_ms: 8
+  waiver_expires_at: null
+  kind_class: null
+decision: null
+verified_by: Diana
+drift_tolerance: null

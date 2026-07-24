@@ -7,3 +7,10 @@ entries:
   status: success
   timestamp: 2026-07-24T11:01:33.615845+00:00
   record_ref: records/feat.api-server__20260724.record.yaml
+- spec_sha256: sha256:d5e56df39bcefe5e2d815f1537e9042817c02924e7b2092887e0116e838dc1dd
+  state_fingerprint: sha256:b588b1a180dde5caf66648c7a9783f4027797cafc6d6a2f7009ffde647708d67
+  package_id: feat.anthropic-messages
+  action: import
+  status: success
+  timestamp: 2026-07-24T20:12:01.956232+00:00
+  record_ref: records/feat.anthropic-messages__20260724.record.yaml

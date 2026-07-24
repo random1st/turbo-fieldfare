@@ -90,3 +90,45 @@ packages:
   package_id: feat.api-server
   owning_package: null
   deprecated: false
+- uuid: 3b4e50ed-2d41-400c-bbd7-29a72a5b6455
+  artifact_id: cap.anthropic-messages
+  artifact_type: Capability
+  package_id: feat.anthropic-messages
+  owning_package: null
+  deprecated: false
+- uuid: 1cde74c7-837d-4c1a-b7f4-a9bdcc4eb10d
+  artifact_id: ent.generation-request
+  artifact_type: Entity
+  package_id: feat.anthropic-messages
+  owning_package: null
+  deprecated: false
+- uuid: 8dd5ae2b-a56c-41e7-a710-5dd2da178a32
+  artifact_id: feat.anthropic-messages
+  artifact_type: Feature
+  package_id: feat.anthropic-messages
+  owning_package: null
+  deprecated: false
+- uuid: 9e43e90e-5508-43e1-862a-f58eecc3babc
+  artifact_id: uc.messages-stream
+  artifact_type: UseCase
+  package_id: feat.anthropic-messages
+  owning_package: null
+  deprecated: false
+- uuid: db287e63-1290-4aa7-bd07-826e53e1fd79
+  artifact_id: uc.messages-once
+  artifact_type: UseCase
+  package_id: feat.anthropic-messages
+  owning_package: null
+  deprecated: false
+- uuid: a0d76be4-ae02-4c97-8715-aa7a8f77154b
+  artifact_id: comp.server-core
+  artifact_type: Component
+  package_id: feat.anthropic-messages
+  owning_package: null
+  deprecated: false
+- uuid: 8da53681-6019-450d-930c-0ff5125d0fec
+  artifact_id: tr.http
+  artifact_type: Transport
+  package_id: feat.anthropic-messages
+  owning_package: null
+  deprecated: false

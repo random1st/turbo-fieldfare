@@ -4,3 +4,8 @@ features:
   status: applied
   product: inference
   version: 1.0.0
+- id: feat.anthropic-messages
+  spec_path: packages/feat.anthropic-messages__20260724.s5d.yaml
+  status: applied
+  product: inference
+  version: 1.0.0

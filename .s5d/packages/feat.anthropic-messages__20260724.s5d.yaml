@@ -1,0 +1,325 @@
+s5d: '1.0'
+id: feat.anthropic-messages
+version: 1.0.0
+product: inference
+tier: lightweight
+allow_update: true
+meta:
+  title: Anthropic Messages API endpoint
+  authors:
+  - Diana
+  date: 2026-07-24
+  tickets: []
+  adrs: []
+  renames: []
+context: |
+  ## Problem
+
+  TurboFieldfareServer speaks only the OpenAI schema. Clients built on the
+  Anthropic SDK — or any tool expecting `POST /v1/messages` (Anthropic
+  Messages API) — cannot use the server, even though the underlying
+  generation capabilities are identical.
+
+  ## Goal
+
+  Add `POST /v1/messages` to the existing TurboFieldfareServer: Anthropic
+  Messages request/response schema, SSE event protocol for `stream: true`
+  (`message_start`, `content_block_start`, `content_block_delta`,
+  `content_block_stop`, `message_delta`, `message_stop`), and Anthropic-style
+  error bodies. Pure protocol translation inside the existing serving domain —
+  `GenerationSession`, the FIFO single-in-flight slot, sampling validation,
+  and the runtime stay untouched.
+
+  ## Privacy
+  Classification: Internal
+workflow:
+  mode: plan
+  target_architecture:
+    summary: |
+      The serving domain gains a second protocol adapter beside the OpenAI
+      one, inside the same TurboFieldfareServerCore library. Anthropic Codable
+      types live in a new AnthropicTypes.swift; Routes.swift gains the
+      /v1/messages handler reusing the same GenerationSession. System-prompt
+      handling maps Anthropic `system` (string or text blocks) onto the
+      runtime's native system role; user/assistant roles map one-to-one.
+      Stop reasons map endOfTurn/eos/stopString → end_turn (or stop_sequence
+      when a client stop string fired) and maxTokens → max_tokens.
+    invariants:
+    - One warm model per server process; model loads at startup, never per request
+    - At most one generation in flight; requests queue FIFO (shared with OpenAI routes)
+    - Client disconnect cancels the in-flight generation via Task cancellation
+    - Server target adds no runtime logic; only protocol translation
+  delivery_strategy:
+    summary: |
+      Single brick: AnthropicTypes.swift + one route handler + SSE event
+      framing in Core, tests in Tests/TurboFieldfareServer. No new targets,
+      no new dependencies, no changes to existing OpenAI handlers.
+    rationale: |
+      Additive-only change keeps the fork trivially rebaseable onto upstream
+      and mirrors decision.api-server (Hummingbird 2, confirmed by Roman
+      2026-07-24) — no new serving tradeoff is being decided.
+  resources: null
+  role_map:
+    reviewer: reviewer
+    verifier: reviewer
+    implementer: coder
+    owner: human
+  review_policy:
+    cross_model_required: false
+    required_on: []
+  structure_outline:
+    summary: |
+      Anthropic Codable types + one Hummingbird route + SSE event framer in
+      Core; reuses SamplingParams/PreparedGeneration/GenerationOutcome as-is.
+    signatures:
+    - 'struct MessagesRequest: Decodable'
+    - 'struct MessagesResponse: Encodable'
+    - func anthropicStreamEvents(outcome deltas) -> AsyncThrowingStream<Data, Error>
+    types:
+    - MessagesRequest / MessagesResponse / MessagesStreamEvent
+    - AnthropicErrorResponse
+  execution_mode:
+    engine: manual
+    max_iterations: null
+    stop_conditions:
+    - Phase acceptance reached
+    - Approved scope exhausted
+    - New decision required
+  phases:
+  - id: prototype
+    title: Prototype
+    scope: Reduce unknowns before committed implementation
+    roles:
+    - owner
+    - implementer
+    acceptance:
+    - Anthropic Messages schema and SSE event order confirmed against Anthropic docs
+    - Role/system/stop_reason mapping to the runtime confirmed from source
+    rollback:
+    - Discard spike output if assumptions fail
+  - id: build
+    title: Build
+    scope: Implement approved scope and pass local gates
+    roles:
+    - implementer
+    - reviewer
+    acceptance:
+    - Declared gates pass
+    - Change matches approved scope
+    rollback:
+    - Revert or reconcile if gates or review fail
+  - id: measure
+    title: Measure
+    scope: Collect telemetry and close the loop with an explicit verdict
+    roles:
+    - owner
+    - verifier
+    acceptance:
+    - Smoke against the real model — stream=false returns Anthropic message shape with usage
+    - stream=true emits the full event sequence in order and ends with message_stop
+    - Missing max_tokens yields 400 invalid_request_error
+    rollback:
+    - Iterate or kill if evidence stays weak
+artifacts:
+  products:
+  - id: inference
+    name: inference
+    organization: null
+  domains:
+  - id: dom.inference.core
+    product: inference
+    name: inference core domain
+    classification: core
+    description: Metal runtime, forward pass, sampling — unchanged by this feature
+    team: null
+    maturity_level: product
+  - id: dom.serving
+    product: inference
+    name: network serving domain
+    classification: core
+    description: HTTP API surface over the runtime
+    team: null
+    maturity_level: genesis
+  capabilities:
+  - id: cap.anthropic-messages
+    domain: dom.serving
+    name: Anthropic Messages API endpoint
+    description: POST /v1/messages with Anthropic schema and SSE event protocol
+    since: null
+  entities:
+  - id: ent.generation-request
+    domain: dom.serving
+    name: generation request
+  features:
+  - id: feat.anthropic-messages
+    product: inference
+    name: anthropic-messages
+    description: Anthropic-compatible Messages API endpoint on the existing server
+  use_cases:
+  - id: uc.messages-stream
+    feature: feat.anthropic-messages
+    name: Streamed message (SSE events)
+  - id: uc.messages-once
+    feature: feat.anthropic-messages
+    name: Non-streamed message
+  systems:
+  - id: sys.inference
+    product: inference
+    name: inference
+  containers:
+  - id: ctr.inference.app
+    system: sys.inference
+    name: TurboFieldfare package
+    technology: Swift 6.2 / SPM
+  components:
+  - id: comp.server-core
+    feature: feat.anthropic-messages
+    domain: dom.serving
+    container: ctr.inference.app
+    name: TurboFieldfareServerCore
+    paths:
+    - Sources/TurboFieldfareServer/Core/
+    - Tests/TurboFieldfareServer/
+  roles: []
+  concerns: []
+  metrics: []
+  supersystems: []
+  transports:
+  - id: tr.http
+    type: rest
+    serialization: null
+    description: null
+links:
+  feature_to_domain:
+  - domain: dom.serving
+    feature: feat.anthropic-messages
+  use_case_to_capability:
+  - capability: cap.anthropic-messages
+    use_case: uc.messages-stream
+  - capability: cap.anthropic-messages
+    use_case: uc.messages-once
+  use_case_to_entity:
+  - entity: ent.generation-request
+    use_case: uc.messages-stream
+  - use_case: uc.messages-once
+    entity: ent.generation-request
+  component_to_capability:
+  - component: comp.server-core
+    capability: cap.anthropic-messages
+  component_to_entity: []
+  container_to_capability: []
+  concern_to_metric: []
+  component_to_container:
+  - component: comp.server-core
+    container: ctr.inference.app
+  edges: []
+  depends_on: []
+  entity_relations: []
+  capability_to_entity: []
+  capability_to_concern: []
+contracts:
+- id: contract.anthropic-messages
+  format: openapi
+  path: null
+  sha256: null
+  inline: |
+    openapi: 3.0.3
+    info: {title: TurboFieldfare Anthropic-compatible Messages API, version: 0.1.0}
+    paths:
+      /v1/messages:
+        post:
+          summary: Create a message (Anthropic Messages API subset)
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required: [model, max_tokens, messages]
+                  properties:
+                    model: {type: string}
+                    max_tokens: {type: integer, minimum: 1}
+                    messages:
+                      type: array
+                      items:
+                        type: object
+                        required: [role, content]
+                        properties:
+                          role: {type: string, enum: [user, assistant]}
+                          content:
+                            oneOf:
+                            - type: string
+                            - type: array
+                              items: {type: object, properties: {type: {enum: [text]}, text: {type: string}}}
+                    system:
+                      oneOf:
+                      - type: string
+                      - type: array
+                        items: {type: object, properties: {type: {enum: [text]}, text: {type: string}}}
+                    temperature: {type: number, minimum: 0}
+                    top_p: {type: number, exclusiveMinimum: 0, maximum: 1}
+                    stop_sequences: {type: array, items: {type: string}}
+                    stream: {type: boolean, default: false}
+          responses:
+            '200':
+              description: |
+                Non-stream: {id: msg_*, type: message, role: assistant,
+                content: [{type: text, text}], model, stop_reason, usage:
+                {input_tokens, output_tokens}}.
+                Stream: SSE events message_start, content_block_start,
+                content_block_delta (text_delta), content_block_stop,
+                message_delta (stop_reason + usage), message_stop.
+            '400':
+              description: '{type: error, error: {type: invalid_request_error, message}}'
+  binds_to:
+  - capability: cap.anthropic-messages
+    entity: null
+gates:
+- kind: schema
+- kind: graph
+- kind: review
+roc: null
+problem:
+  signal: Anthropic-SDK clients cannot talk to the OpenAI-only server
+  constraints:
+  - single warm model load at startup
+  - serialized generations (library single-in-flight contract)
+  - additive-only changes; OpenAI handlers untouched
+  targets:
+  - Anthropic Messages schema fidelity
+  - SSE event order matches the Anthropic protocol
+  indicators: []
+  goodhart_guard: null
+  acceptance: null
+  blast_radius: null
+  reversibility: null
+  status: null
+hypotheses:
+- id: implementation-review
+  title: Adversarial implementation review
+  content: Review the /v1/messages implementation against the Anthropic protocol and acceptance criteria
+  scope: feature diff
+  kind: system
+  layer: L1
+  r_eff: null
+  evidence:
+  - id: 20260724-gate-review-implementation-review
+    type: gate:review
+    content: 'Diff reviewed line-by-line: request validation (required max_tokens, tools/thinking/metadata rejected, roles), event order message_start→content_block_start→deltas→content_block_stop→message_delta→message_stop verified against Anthropic docs, msg_ id format, sanitized 500 api_error, OpenAI handlers untouched. 52/52 tests pass via Scripts/test.sh.'
+    verdict: pass
+    valid_until: 2026-10-22T20:10:47.094147+00:00
+    carrier_ref: null
+    formality: null
+    claim_scope: []
+    congruence_level: null
+    reliability: null
+    refine_kind: null
+  depends_on: []
+  rationale: null
+  spec_ref: null
+  prompt: null
+  next_move: null
+decision: null
+note_rationale: null
+expires_at: null
+auto_noted: false

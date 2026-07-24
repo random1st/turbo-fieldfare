@@ -1,7 +1,7 @@
-revision: 14
+revision: 15
 spec_ref: feat.api-server__20260724.s5d.yaml
 spec_sha256: sha256:0e45a8b28c329f68f0e8cf1256022acbddfbea996080bd363e110d749eac34d4
-status: applied
+status: operated
 sync_status: synced
 status_history:
 - status: proposed
@@ -24,6 +24,8 @@ status_history:
   timestamp: 2026-07-24T11:01:33.413408+00:00
 - status: applied
   timestamp: 2026-07-24T11:01:33.637603+00:00
+- status: operated
+  timestamp: 2026-07-24T12:56:49.722984+00:00
 active_phase: null
 phase_history: []
 phase_runs: []
@@ -53,7 +55,18 @@ preview:
     update: 0
     delete: 0
   log: null
-reflection: null
+reflection:
+  verdict: null
+  measurement_window: null
+  telemetry_refs: []
+  summary: 'Shipped: Hummingbird 2 OpenAI-compatible server, 41/41 core tests, 8/8 live smoke checks against the real 14.3 GB install'
+  worked: []
+  issues: []
+  structured_issues: []
+  follow_ups: []
+  evidence: []
+  heuristics:
+  - Actor isolation alone does not serialize across an external await — test concurrency explicitly before trusting an actor as a mutex
 gate_results:
 - kind: schema
   status: passed

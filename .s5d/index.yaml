@@ -1,0 +1,6 @@
+features:
+- id: feat.api-server
+  spec_path: packages/feat.api-server__20260724.s5d.yaml
+  status: applied
+  product: inference
+  version: 1.0.0

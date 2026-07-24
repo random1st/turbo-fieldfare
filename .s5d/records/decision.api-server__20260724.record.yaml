@@ -1,0 +1,45 @@
+revision: 2
+spec_ref: decision.api-server__20260724.s5d.yaml
+spec_sha256: sha256:997a728ba225553585e954343310cc2ffaeb716dcc96757e45fd25ed039af7f9
+status: proposed
+sync_status: unknown
+status_history:
+- status: proposed
+  timestamp: 2026-07-24T07:43:59.092521+00:00
+active_phase: null
+phase_history: []
+phase_runs: []
+approvals: []
+preview: null
+reflection: null
+gate_results: []
+decision:
+  title: Hummingbird 2 in-process server
+  winner_id: hummingbird
+  rejected_ids:
+  - network-framework
+  - vapor
+  - cli-subprocess
+  context: Need LM Studio-style OpenAI-compatible API over the existing Swift runtime; single warm model, serialized generations
+  decision: Build TurboFieldfareServer as a new SPM executable on Hummingbird 2, in-process over the TurboFieldfare library
+  rationale: 'Best correctness-per-dependency: async/await-native SSE and routing without owning an HTTP stack; Vapor too heavy, hand-rolled too risky, subprocess cannot stay warm'
+  consequences: Adds hummingbird+swift-nio dependency tree to Package.swift; HTTP layer is framework code, generation stays library code
+  decided_at: 2026-07-24T08:03:26.911851+00:00
+  confirmed_by: Roman
+  expires_at: 2026-10-22
+  do_list: []
+  dont_list: []
+  challenge:
+    mode: standard
+    passed: true
+    summary: '5 probes run: (1) counter-argument zero-dep rejected — HTTP framing bugs cost more than one dependency; (2) tail failure — client disconnect mid-decode must cancel via Task.checkCancellation, verified present in runRawCompletion; (3) evidence weakness — Hummingbird API details from knowledge, to be verified against Package.resolved at implementation; (4) weakest link — single-in-flight serialization caps throughput at 1 generation, acceptable for local LM Studio-style serving; (5) existing alternatives — llama.cpp/mlx-lm servers exist but forfeit the 2GB streaming runtime, which is the point of the fork'
+    checks: []
+  decision_subject: null
+  decision_subject_granularity: null
+  evaluative_surface: null
+  belief_state: null
+  outcome_model: null
+  pareto_set: []
+  choice_rule: null
+verified_by: null
+drift_tolerance: null

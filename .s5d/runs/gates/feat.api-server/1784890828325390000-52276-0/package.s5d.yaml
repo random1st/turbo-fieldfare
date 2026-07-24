@@ -1,0 +1,366 @@
+s5d: '1.0'
+id: feat.api-server
+version: 1.0.0
+product: inference
+tier: standard
+allow_update: true
+meta:
+  title: OpenAI-compatible API server (LM Studio style)
+  authors:
+  - Diana
+  date: 2026-07-24
+  tickets: []
+  adrs: []
+  renames: []
+context: |
+  ## Problem
+
+  TurboFieldfare has no network API. Its unique value — Gemma 4 26B-A4B running
+  in ~2 GB RAM via SSD expert streaming — is reachable only from the CLI, the
+  Mac app, or the internal Unix-socket IPC. No existing tool (OpenAI SDK,
+  Continue, aichat, scripts) can talk to it.
+
+  ## Goal
+
+  A new SPM executable `TurboFieldfareServer` that loads the model once and
+  serves an LM Studio-style OpenAI-compatible HTTP API on localhost:
+  `GET /v1/models`, `POST /v1/chat/completions` (SSE streaming + non-streaming),
+  `POST /v1/completions`, `GET /health`. HTTP layer is Hummingbird 2 per
+  decision.api-server (confirmed by Roman 2026-07-24).
+
+  ## Privacy
+  Classification: Internal — localhost-only by default, no telemetry, prompts
+  never leave the process.
+workflow:
+  mode: plan
+  target_architecture:
+    summary: |
+      A serving domain sits beside frontend and install. TurboFieldfareServerCore (library target, testable) owns HTTP routing, OpenAI schema codable types, SSE framing, and a GenerationSession actor that serializes access to the single warm RealForwardRunner per the library single-in-flight contract. The Command executable is a thin arg-parsing shell, mirroring the existing TurboFieldfareCLI Core/Command split. Generation itself stays in the TurboFieldfare library; the server never reimplements runtime logic.
+    invariants:
+    - One warm model per server process; model loads at startup, never per request
+    - At most one generation in flight; requests queue FIFO
+    - Client disconnect cancels the in-flight generation via Task cancellation
+    - Server target adds no runtime logic; only protocol translation
+  delivery_strategy:
+    summary: |
+      Single brick: add Sources/TurboFieldfareServer/{Core,Command}, wire Package.swift product+dependency on hummingbird, add Tests/TurboFieldfareServer. No changes to existing targets.
+    rationale: |
+      Additive-only change keeps the fork trivially rebaseable onto upstream.
+  resources: null
+  role_map:
+    reviewer: reviewer
+    verifier: reviewer
+    implementer: coder
+    owner: human
+  review_policy:
+    cross_model_required: false
+    required_on: []
+  structure_outline:
+    summary: |
+      OpenAI Codable types + Hummingbird router + GenerationSession actor + SSE writer in Core; ArgumentParser-free hand-rolled flags in Command (matches repo CLI style).
+    signatures:
+    - actor GenerationSession { func chat(messages:config:) -> AsyncThrowingStream<TokenDelta,Error> }
+    - 'struct ChatCompletionRequest: Decodable'
+    - 'func routes(session: GenerationSession) -> some RouterProtocol'
+    - 'func writeSSE(chunk: Encodable) -> ByteBuffer'
+    types:
+    - ChatCompletionRequest / ChatCompletionResponse / ChatCompletionChunk
+    - CompletionRequest / CompletionResponse
+    - ModelList / ModelCard
+    - GenerationSession (actor)
+  execution_mode:
+    engine: manual
+    max_iterations: null
+    stop_conditions:
+    - Phase acceptance reached
+    - Approved scope exhausted
+    - New decision required
+  phases:
+  - id: build
+    title: Build
+    scope: Implement approved scope and pass local gates
+    roles:
+    - implementer
+    - reviewer
+    acceptance:
+    - Declared gates pass
+    - Change matches approved scope
+    rollback:
+    - Revert or reconcile if gates or review fail
+  - id: measure
+    title: Measure
+    scope: Live smoke test against a real installed .gturbo model
+    roles:
+    - owner
+    - verifier
+    acceptance:
+    - curl stream=true shows incremental SSE chunks
+    - disconnect cancels decode, next request served without reload
+    rollback:
+    - Iterate or kill if evidence stays weak
+artifacts:
+  products:
+  - id: inference
+    name: inference
+    organization: null
+  domains:
+  - id: dom.inference.core
+    product: inference
+    name: inference core domain
+    classification: core
+    description: Metal runtime, forward pass, sampling — unchanged by this feature
+    team: null
+    maturity_level: product
+  - id: dom.serving
+    product: inference
+    name: network serving domain
+    classification: core
+    description: HTTP API surface over the runtime — new with this feature
+    team: null
+    maturity_level: genesis
+  capabilities:
+  - id: cap.api-server
+    domain: dom.serving
+    name: OpenAI-compatible HTTP API
+    description: /v1/models, /v1/chat/completions (SSE), /v1/completions, /health
+    since: null
+  entities:
+  - id: ent.generation-request
+    domain: dom.serving
+    name: generation request
+  features:
+  - id: feat.api-server
+    product: inference
+    name: api-server
+    description: LM Studio-style OpenAI-compatible HTTP server
+  use_cases:
+  - id: uc.chat-completions-stream
+    feature: feat.api-server
+    name: Streamed chat completion
+  - id: uc.chat-completions-once
+    feature: feat.api-server
+    name: Non-streamed chat completion
+  - id: uc.list-models
+    feature: feat.api-server
+    name: List models
+  - id: uc.raw-completion
+    feature: feat.api-server
+    name: Raw text completion
+  systems:
+  - id: sys.inference
+    product: inference
+    name: inference
+  containers:
+  - id: ctr.inference.app
+    system: sys.inference
+    name: TurboFieldfare package
+    technology: Swift 6.2 / SPM
+  components:
+  - id: comp.server-core
+    feature: feat.api-server
+    domain: dom.serving
+    container: ctr.inference.app
+    name: TurboFieldfareServerCore
+    paths:
+    - Sources/TurboFieldfareServer/Core/
+    - Tests/TurboFieldfareServer/
+  - id: comp.server-command
+    feature: feat.api-server
+    domain: dom.serving
+    container: ctr.inference.app
+    name: TurboFieldfareServer executable
+    paths:
+    - Sources/TurboFieldfareServer/Command/
+  roles: []
+  concerns: []
+  metrics: []
+  supersystems: []
+  transports:
+  - id: tr.http
+    type: rest
+    serialization: null
+    description: HTTP/1.1 on 127.0.0.1, SSE for streamed generations
+links:
+  feature_to_domain:
+  - feature: feat.api-server
+    domain: dom.serving
+  use_case_to_capability:
+  - use_case: uc.chat-completions-stream
+    capability: cap.api-server
+  - capability: cap.api-server
+    use_case: uc.chat-completions-once
+  - capability: cap.api-server
+    use_case: uc.list-models
+  - use_case: uc.raw-completion
+    capability: cap.api-server
+  use_case_to_entity:
+  - entity: ent.generation-request
+    use_case: uc.chat-completions-stream
+  - use_case: uc.chat-completions-once
+    entity: ent.generation-request
+  - use_case: uc.raw-completion
+    entity: ent.generation-request
+  component_to_capability:
+  - capability: cap.api-server
+    component: comp.server-core
+  - component: comp.server-command
+    capability: cap.api-server
+  component_to_entity:
+  - entity: ent.generation-request
+    component: comp.server-core
+  container_to_capability: []
+  concern_to_metric: []
+  component_to_container:
+  - container: ctr.inference.app
+    component: comp.server-core
+  - component: comp.server-command
+    container: ctr.inference.app
+  edges:
+  - from: dom.serving
+    to: dom.inference.core
+    archetype: conformist
+    description: null
+    downstream_capability: cap.api-server
+    waiver: null
+    transport_ref: tr.http
+  depends_on: []
+  entity_relations: []
+  capability_to_entity:
+  - capability: cap.api-server
+    entity: ent.generation-request
+  capability_to_concern: []
+contracts:
+- id: contract.openai-api
+  format: openapi
+  path: null
+  sha256: null
+  inline: |
+    openapi: 3.0.3
+    info: {title: TurboFieldfare OpenAI-compatible API, version: 0.1.0}
+    paths:
+      /health:
+        get: {summary: Liveness, responses: {'200': {description: OK}}}
+      /v1/models:
+        get: {summary: List models, responses: {'200': {description: OpenAI ModelList}}}
+      /v1/chat/completions:
+        post:
+          summary: Chat completion, SSE when stream=true
+          responses: {'200': {description: chat.completion or text/event-stream of chat.completion.chunk}}
+      /v1/completions:
+        post:
+          summary: Raw text completion (no chat template), SSE when stream=true
+          responses: {'200': {description: completion or text/event-stream of completion chunks}}
+  binds_to:
+  - capability: cap.api-server
+    entity: null
+gates:
+- kind: schema
+- kind: graph
+- kind: review
+- kind: test
+roc: null
+problem:
+  signal: No network API exists; runtime value is unreachable from standard tooling
+  constraints:
+  - single warm model load at startup
+  - serialized generations (library single-in-flight contract)
+  - additive-only changes to existing targets
+  targets:
+  - OpenAI schema fidelity
+  - cancel-on-disconnect correctness
+  indicators: []
+  goodhart_guard: null
+  acceptance: POST /v1/chat/completions stream=true yields incremental SSE chunks in OpenAI chunk schema; GET /v1/models lists the served model; client disconnect cancels decode and next request is served without model reload; stream=false returns one JSON chat.completion with usage stats
+  blast_radius: null
+  reversibility: null
+  status: backlog
+hypotheses:
+- id: shared-session-actor
+  title: Single GenerationSession actor
+  content: One actor owns runner+scratch; all requests enqueue FIFO. Matches library single-in-flight contract; simplest correct concurrency.
+  scope: server concurrency
+  kind: system
+  layer: L1
+  r_eff: null
+  evidence:
+  - id: 20260724-internal-shared-session-actor
+    type: internal
+    content: RawCompletionScratch docstring states single-in-flight guard upstream is the contract; actor is that guard. Zero extra RAM.
+    verdict: pass
+    valid_until: 2026-10-22T08:11:45.183430+00:00
+    carrier_ref: null
+    formality: 4
+    claim_scope:
+    - concurrency
+    congruence_level: null
+    reliability: 0.9
+    refine_kind: null
+  depends_on: []
+  rationale: null
+  spec_ref: null
+  prompt: null
+  next_move: null
+- id: per-request-runner
+  title: Per-request runner pool
+  content: Pool of N RealForwardRunner+scratch instances for parallel generations. Costs N x KV cache and expert-cache RAM; violates the 2GB budget on target hardware.
+  scope: server concurrency
+  kind: system
+  layer: invalid
+  r_eff: null
+  evidence:
+  - id: 20260724-internal-per-request-runner
+    type: internal
+    content: Each runner adds FP16 KV cache (4K context) plus expert cache slots; on the 8GB target a second runner breaks the memory budget the project exists for.
+    verdict: fail
+    valid_until: 2026-10-22T08:11:45.197404+00:00
+    carrier_ref: null
+    formality: 4
+    claim_scope:
+    - memory
+    congruence_level: null
+    reliability: 0.8
+    refine_kind: null
+  depends_on: []
+  rationale: null
+  spec_ref: null
+  prompt: null
+  next_move: null
+- id: implementation-review
+  title: Adversarial implementation review
+  content: Blind diff, edge-case, and acceptance review of the server implementation against the approved spec
+  scope: feature diff
+  kind: system
+  layer: L2
+  r_eff: null
+  evidence:
+  - id: 20260724-gate-review-implementation-review
+    type: gate:review
+    content: 'Three-layer adversarial review: PASS-WITH-NITS all layers. Medium findings fixed: numeric param validation (max_tokens<=0, temperature<0, top_p out of range → 400), slot-acquire cancellation race closed with Task.checkCancellation, catch-all 500 sanitized. Deferred with s5d:debt markers: disconnect detection during prefill and while queued (Hummingbird 2 does not cancel responder task on socket close), unbounded waiter queue. Added 6 regression tests incl. cancelledWaiterNeverRuns and slotReleasedOnGenerationError; 41/41 pass.'
+    verdict: pass
+    valid_until: 2026-10-22T10:58:23.840009+00:00
+    carrier_ref: null
+    formality: null
+    claim_scope: []
+    congruence_level: null
+    reliability: null
+    refine_kind: null
+  - id: 20260724-test-implementation-review
+    type: test
+    content: 'swift test --filter TurboFieldfareServerTests: 41/41 pass. Scripts/test.sh: 475/475 pass. swift build clean.'
+    verdict: pass
+    valid_until: 2026-10-22T11:00:06.220318+00:00
+    carrier_ref: null
+    formality: null
+    claim_scope: []
+    congruence_level: null
+    reliability: null
+    refine_kind: null
+  depends_on: []
+  rationale: null
+  spec_ref: null
+  prompt: null
+  next_move: null
+decision: null
+note_rationale: null
+expires_at: null
+auto_noted: false

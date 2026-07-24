@@ -1,0 +1,48 @@
+schema: s5d.discovery.metamodel/1.0
+source_graph: graph.json
+products: []
+domains: []
+capabilities: []
+entities: []
+features: []
+use_cases: []
+systems: []
+containers: []
+components:
+- id: component_candidate:Scripts
+  name: Scripts
+  status: inferred
+  confidence: 0.55
+  evidence:
+  - path: Scripts/check_markdown_links.rb
+    line: null
+    kind: path
+    symbol: null
+- id: component_candidate:Sources
+  name: Sources
+  status: inferred
+  confidence: 0.55
+  evidence:
+  - path: Sources/TurboFieldfare/Infrastructure/Metal/MetalContext.swift
+    line: null
+    kind: path
+    symbol: null
+- id: component_candidate:Tests
+  name: Tests
+  status: inferred
+  confidence: 0.55
+  evidence:
+  - path: Tests/TurboFieldfare/Core/CLI/CLIArgumentsTests.swift
+    line: null
+    kind: path
+    symbol: null
+- id: component_candidate:root
+  name: root
+  status: inferred
+  confidence: 0.55
+  evidence:
+  - path: Package.swift
+    line: null
+    kind: path
+    symbol: null
+projections: []

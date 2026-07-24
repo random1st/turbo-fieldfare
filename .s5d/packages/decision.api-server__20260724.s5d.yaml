@@ -1,0 +1,142 @@
+s5d: '1.0'
+id: decision.api-server
+version: 1.0.0
+product: inference
+tier: decision
+allow_update: true
+meta:
+  title: api-server
+  authors: []
+  date: 2026-07-24
+  tickets: []
+  adrs: []
+  renames: []
+context: null
+workflow: null
+artifacts: null
+links: null
+contracts: []
+gates:
+- kind: review
+roc: null
+problem:
+  signal: 'TurboFieldfare has no network API: only CLI, Mac app, and internal Unix-socket IPC. LM Studio-style local serving needs an OpenAI-compatible HTTP endpoint so existing tools can talk to the 2GB-RAM Gemma 4 runtime.'
+  constraints:
+  - single warm model load
+  - serialized generations (single-in-flight contract)
+  - minimal new dependencies
+  targets:
+  - OpenAI schema fidelity
+  - SSE token streaming
+  - cancel on disconnect
+  indicators: []
+  goodhart_guard: null
+  acceptance: POST /v1/chat/completions with stream=true yields incremental SSE chunks in OpenAI schema; GET /v1/models lists the served model; client disconnect cancels decode and server serves next request without reload
+  blast_radius: null
+  reversibility: null
+  status: backlog
+hypotheses:
+- id: hummingbird
+  title: Hummingbird 2 in-process server
+  content: New SPM executable target TurboFieldfareServer depending on Hummingbird 2 (swift-nio). Loads model once, serializes generations via actor, serves /v1/chat/completions with SSE streaming, /v1/completions, /v1/models.
+  scope: serving domain, new component
+  kind: system
+  layer: L1
+  r_eff: null
+  evidence:
+  - id: 20260724-internal-hummingbird
+    type: internal
+    content: Async/await-native, SSE via streamed response body, dependency footprint is hummingbird plus swift-nio only. Widely used for exactly this shape of API.
+    verdict: pass
+    valid_until: 2026-10-22T07:45:12.226331+00:00
+    carrier_ref: null
+    formality: 3
+    claim_scope:
+    - fit
+    congruence_level: null
+    reliability: 0.7
+    refine_kind: null
+  depends_on: []
+  rationale: null
+  spec_ref: feat.api-server__20260724.s5d.yaml
+  prompt: null
+  next_move: null
+- id: network-framework
+  title: Zero-dependency Network.framework server
+  content: Hand-rolled HTTP/1.1 + SSE on NWListener, no new external packages. Matches repo single-dependency ethos but we own HTTP parsing, framing, and concurrency correctness.
+  scope: serving domain, new component
+  kind: system
+  layer: invalid
+  r_eff: null
+  evidence:
+  - id: 20260724-internal-network-framework
+    type: internal
+    content: Zero new packages, but hand-rolled HTTP parsing, keep-alive, chunked/SSE framing and concurrency become our bug surface; correctness risk concentrates in code we write once and rarely test.
+    verdict: fail
+    valid_until: 2026-10-22T07:45:12.242725+00:00
+    carrier_ref: null
+    formality: 3
+    claim_scope:
+    - correctness-risk
+    congruence_level: null
+    reliability: 0.7
+    refine_kind: null
+  depends_on: []
+  rationale: null
+  spec_ref: null
+  prompt: null
+  next_move: null
+- id: vapor
+  title: Vapor 4 server
+  content: Vapor gives routing, content coders, ecosystem. Cost is the full swift-nio ecosystem dependency tree and build time for three endpoints.
+  scope: serving domain, new component
+  kind: system
+  layer: invalid
+  r_eff: null
+  evidence:
+  - id: 20260724-internal-vapor
+    type: internal
+    content: Pulls the full Vapor/swift-nio ecosystem for three endpoints; build time and binary weight disproportionate on the 8 GB target machine.
+    verdict: fail
+    valid_until: 2026-10-22T07:45:12.257731+00:00
+    carrier_ref: null
+    formality: 3
+    claim_scope:
+    - cost
+    congruence_level: null
+    reliability: 0.7
+    refine_kind: null
+  depends_on: []
+  rationale: null
+  spec_ref: null
+  prompt: null
+  next_move: null
+- id: cli-subprocess
+  title: Server shells out to TurboFieldfareCLI
+  content: 'Any HTTP front (even non-Swift) spawns the existing CLI per request. Different lifecycle kind: process isolation instead of in-process.'
+  scope: serving domain, process boundary
+  kind: system
+  layer: invalid
+  r_eff: null
+  evidence:
+  - id: 20260724-internal-cli-subprocess
+    type: internal
+    content: 'CLI is one-shot: every request pays full model load (about 2 GB weights plus Metal init). Cannot serve a warm multi-request API; SSE token streaming would require parsing stdout framing.'
+    verdict: fail
+    valid_until: 2026-10-22T07:45:12.271236+00:00
+    carrier_ref: null
+    formality: 4
+    claim_scope:
+    - lifecycle
+    congruence_level: null
+    reliability: 0.9
+    refine_kind: null
+  depends_on: []
+  rationale: null
+  spec_ref: null
+  prompt: null
+  next_move: null
+decision: null
+note_rationale: null
+expires_at: null
+auto_noted: false

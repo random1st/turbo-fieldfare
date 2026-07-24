@@ -1,0 +1,9 @@
+schema: '1.0'
+entries:
+- spec_sha256: sha256:0e45a8b28c329f68f0e8cf1256022acbddfbea996080bd363e110d749eac34d4
+  state_fingerprint: sha256:2e94bcdf8d4a88703a17a4f645112ad53308243343778b66897a5313e0d42f3b
+  package_id: feat.api-server
+  action: import
+  status: success
+  timestamp: 2026-07-24T11:01:33.615845+00:00
+  record_ref: records/feat.api-server__20260724.record.yaml
